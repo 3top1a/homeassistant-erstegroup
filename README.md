@@ -1,5 +1,7 @@
 # Home Assistant ErsteGroup Integration
 
+![Image showing the integration in Home Assistant](image.png)
+
 Custom integration for Home Assistant to track ErsteGroup (specifically developed for Česká Spořitelna) banking accounts.
 
 ## Features
@@ -38,9 +40,9 @@ erstegroup:
 ## Sensors
 
 - `sensor.{account}_balance` - Current account balance
-- `sensor.{account}_monthly_spending` - Current month spending (excluding internal transfers)
+- `sensor.{account}_monthly_spending` - Current month spending (excluding internal transfers between accounts)
 - `sensor.{account}_spending_ratio` - Last 30 days spending/income ratio
-- `sensor.{account}_financial_health` - Safety margin until payday
+- `sensor.{account}_financial_health` - Safety margin, calculated as `days until money runs out at current burn rate / days until payday`
 
 ## License
 
