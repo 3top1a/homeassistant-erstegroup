@@ -15,6 +15,9 @@ DEFAULT_API_BASE_URL = "https://webapi.developers.erstegroup.com/api/csas/public
 DEFAULT_IDP_BASE_URL = "https://webapi.developers.erstegroup.com/api/csas/sandbox/v1/sandbox-idp"
 DEFAULT_PAYDAY = 1
 
+# OAuth2 scopes
+OAUTH_SCOPES = ["siblings.accounts"]
+
 # API endpoints
 API_ACCOUNTS = "/my/accounts"
 API_BALANCES = "/my/accounts/{account_id}/balance"
@@ -22,3 +25,4 @@ API_TRANSACTIONS = "/my/accounts/{account_id}/transactions"
 
 # Update interval
 UPDATE_INTERVAL = 600  # 10 minutes
+# TODO Configurable update interval

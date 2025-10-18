@@ -1,6 +1,7 @@
 """The ErsteGroup integration."""
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 import voluptuous as vol
 
@@ -16,10 +17,10 @@ from .const import (
     CONF_REFRESH_TOKEN,
     CONF_API_BASE_URL,
     CONF_IDP_BASE_URL,
+    CONF_PAYDAY,
     DEFAULT_API_BASE_URL,
     DEFAULT_IDP_BASE_URL,
-    CONF_PAYDAY,
-    DEFAULT_PAYDAY
+    DEFAULT_PAYDAY,
 )
 from .coordinator import ErsteGroupCoordinator
 
@@ -68,8 +69,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["coordinator"] = coordinator
+    hass.data[DOMAIN]["config"] = conf
 
     # Load sensor platform
     await async_load_platform(hass, "sensor", DOMAIN, {}, config)
+    await async_load_platform(hass, "button", DOMAIN, {}, config)
 
     return True
