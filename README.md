@@ -20,8 +20,8 @@ the `Premium - Accounts API (v3)` API (free for natural persons' accounts,
 otherwise
 300CZK/month).
 
-Once you have filled out everything in your HA configuration except the refresh token, you can click on the 'ErsteGroup
-Re-authenticate' button in HA to get your refresh token.
+Add the integration into HA, fill out the required parameters, click the authentication step and paste the complete URL
+after authentication into the text box.
 
 If everything works correctly, apply for production access. For me this took about four business days.
 
@@ -39,22 +39,6 @@ If everything works correctly, apply for production access. For me this took abo
 2. Run `git clone https://github.com/3top1a/homeassistant-erstegroup.git`
 3. Restart Home Assistant
 
-## Configuration
-
-Add to your `configuration.yaml`:
-
-```yaml
-erstegroup:
-  api_key: "YOUR_API_KEY"
-  client_id: "YOUR_CLIENT_ID"
-  client_secret: "YOUR_CLIENT_SECRET"
-  refresh_token: "YOUR_REFRESH_TOKEN" # Your refresh token, does not support automatic authentication yet
-  # Api and Idp urls from your develop config portal
-  api_base_url: "https://webapi.developers.erstegroup.com/api/csas/public/sandbox/v3/accounts" # defaults to sandbox, use `https://www.csas.cz/webapi/api/v3/accounts` for prod
-  idp_base_url: "https://webapi.developers.erstegroup.com/api/csas/sandbox/v1/sandbox-idp" # defaults to sandbox, use `https://bezpecnost.csas.cz/api/psd2/fl/oidc/v1` for prod
-  payday: 1  # optional, Day of month when you get paid (1-31). Default: 1
-```
-
 ## Sensors
 
 - `sensor.{account}_balance` - Current account balance
@@ -62,6 +46,17 @@ erstegroup:
 - `sensor.{account}_spending_ratio` - Last 30 days spending/income ratio
 - `sensor.{account}_financial_health` - Safety margin, calculated as
   `days until money runs out at current burn rate / days until payday`
+
+## Development
+
+A few helpful commands
+
+```bash
+python -m script.hassfest --action=validate --integration-path homeassistant/components/erstegroup # Validate integration
+python -m script.hassfest --action=generate # Register integration into HA
+python -m script.translations develop --integration erstegroup # Generate translation
+
+```
 
 ## License
 

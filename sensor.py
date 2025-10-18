@@ -11,21 +11,19 @@ from homeassistant.components.sensor import (
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from .const import DOMAIN
+from . import ErsteGroupConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_platform(
+async def async_setup_entry(
         hass: HomeAssistant,
-        config: ConfigType,
+        entry: ErsteGroupConfigEntry,
         async_add_entities: AddEntitiesCallback,
-        discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up ErsteGroup sensors."""
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = entry.runtime_data
 
     # Wait for first successful update
     if not coordinator.data:

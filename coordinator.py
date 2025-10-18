@@ -13,7 +13,16 @@ from .const import (
     API_BALANCES,
     API_TRANSACTIONS,
     UPDATE_INTERVAL,
+    CONF_API_KEY,
+    CONF_CLIENT_ID,
+    CONF_CLIENT_SECRET,
+    CONF_REFRESH_TOKEN,
+    CONF_API_BASE_URL,
+    CONF_IDP_BASE_URL,
+    CONF_PAYDAY,
 )
+from ...config_entries import ConfigEntry
+from ...exceptions import ConfigEntryAuthFailed
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,35 +30,26 @@ _LOGGER = logging.getLogger(__name__)
 class ErsteGroupCoordinator(DataUpdateCoordinator):
     """Class to manage fetching ErsteGroup data."""
 
-    def __init__(
-            self,
-            hass: HomeAssistant,
-            api_key: str,
-            api_base_url: str,
-            idp_base_url: str,
-            client_id: str,
-            client_secret: str,
-            refresh_token: str,
-            payday: int,
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize."""
-        self.api_key = api_key
-        self.api_base_url = api_base_url.rstrip("/")
-        self.idp_base_url = idp_base_url.rstrip("/")
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.refresh_token = refresh_token
+        self.entry = entry
+        self.api_key = entry.data[CONF_API_KEY]
+        self.api_base_url = entry.data[CONF_API_BASE_URL].rstrip("/")
+        self.idp_base_url = entry.data[CONF_IDP_BASE_URL].rstrip("/")
+        self.client_id = entry.data[CONF_CLIENT_ID]
+        self.client_secret = entry.data[CONF_CLIENT_SECRET]
+        self.refresh_token = entry.data[CONF_REFRESH_TOKEN]
+        self.payday = entry.data[CONF_PAYDAY]
         self.access_token = None
         self.session = async_get_clientsession(hass)
         self.account_numbers = {}
-        self.payday = payday
 
         super().__init__(
             hass,
             _LOGGER,
             name="ErsteGroup",
             update_interval=timedelta(seconds=UPDATE_INTERVAL),
-            config_entry=None,  # YAML-only integration
+            config_entry=entry,
         )
 
     def _calculate_days_until_payday(self) -> int:
@@ -87,7 +87,6 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
         if self.access_token:
             return self.access_token
 
-        # Refresh the access token
         url = f"{self.idp_base_url}/token"
         data = {
             "grant_type": "refresh_token",
@@ -98,19 +97,23 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
         try:
             async with self.session.post(url, data=data) as response:
+                if response.status == 401:
+                    raise ConfigEntryAuthFailed("Refresh token expired")
+
                 response.raise_for_status()
                 token_data = await response.json()
                 self.access_token = token_data["access_token"]
 
-                # Update refresh token if a new one was provided
                 if "refresh_token" in token_data:
                     self.refresh_token = token_data["refresh_token"]
                     _LOGGER.info("New refresh token received")
 
                 return self.access_token
+        except ConfigEntryAuthFailed:
+            raise
         except Exception as err:
-            _LOGGER.error("Failed to refresh access token: %s", err)
-            raise UpdateFailed(f"Authentication failed: {err}") from err
+            _LOGGER.error("Failed to refresh access token: %s, %s", response.json(), err)
+            raise UpdateFailed(f"Authentication failed: {response.json()}, {err}") from err
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API."""

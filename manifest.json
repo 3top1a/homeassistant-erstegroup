@@ -2,9 +2,10 @@
   "domain": "erstegroup",
   "name": "ErsteGroup Bank",
   "codeowners": [],
-  "documentation": "https://developers.erstegroup.com",
+  "config_flow": true,
+  "documentation": "https://www.home-assistant.io/integrations/whatever",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "requirements": [],
-  "version": "0.0.2"
+  "quality_scale": "bronze",
+  "requirements": []
 }

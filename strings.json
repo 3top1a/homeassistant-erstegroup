@@ -1,0 +1,33 @@
+{
+  "config": {
+    "flow_title": "ErsteGroup Setup",
+    "step": {
+      "user": {
+        "title": "API Credentials",
+        "description": "Enter your ErsteGroup API credentials",
+        "data": {
+          "api_key": "API Key",
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "api_base_url": "API Base URL",
+          "idp_base_url": "Identity Provider Base URL",
+          "payday": "Payday (1-31)"
+        }
+      },
+      "auth": {
+        "title": "OAuth Authorization",
+        "description": "Visit this URL to authorize:\n\n{oauth_url}\n\nAfter authorizing, you will be redirected to a URL. Copy and paste that entire URL below.",
+        "data": {
+          "redirect_url": "Redirect URL"
+        },
+        "data_description": {
+          "redirect_url": "The full URL that you were redirected to"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate ErsteGroup Bank",
+        "description": "Your token has expired. Please re-authorize to continue."
+      }
+    }
+  }
+}

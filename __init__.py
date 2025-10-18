@@ -1,78 +1,42 @@
 """The ErsteGroup integration."""
 from __future__ import annotations
 
-from datetime import datetime
 import logging
-import voluptuous as vol
 
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.discovery import async_load_platform
-from homeassistant.helpers.typing import ConfigType
-from .const import (
-    DOMAIN,
-    CONF_API_KEY,
-    CONF_CLIENT_ID,
-    CONF_CLIENT_SECRET,
-    CONF_REFRESH_TOKEN,
-    CONF_API_BASE_URL,
-    CONF_IDP_BASE_URL,
-    CONF_PAYDAY,
-    DEFAULT_API_BASE_URL,
-    DEFAULT_IDP_BASE_URL,
-    DEFAULT_PAYDAY,
-)
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from .const import DOMAIN
 from .coordinator import ErsteGroupCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-CONFIG_SCHEMA = vol.Schema(
-    {
-        DOMAIN: vol.Schema(
-            {
-                vol.Required(CONF_API_KEY): cv.string,
-                vol.Required(CONF_CLIENT_ID): cv.string,
-                vol.Required(CONF_CLIENT_SECRET): cv.string,
-                vol.Required(CONF_REFRESH_TOKEN): cv.string,
-                vol.Optional(CONF_API_BASE_URL, default=DEFAULT_API_BASE_URL): cv.string,
-                vol.Optional(CONF_IDP_BASE_URL, default=DEFAULT_IDP_BASE_URL): cv.string,
-                vol.Optional(CONF_PAYDAY, default=DEFAULT_PAYDAY): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=31)
-                ),
-            }
-        )
-    },
-    extra=vol.ALLOW_EXTRA,
-)
+PLATFORMS = [Platform.SENSOR]
+
+type ErsteGroupConfigEntry = ConfigEntry[ErsteGroupCoordinator]
 
 
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the ErsteGroup component."""
-    if DOMAIN not in config:
-        return True
+async def async_setup_entry(hass: HomeAssistant, entry: ErsteGroupConfigEntry) -> bool:
+    """Set up ErsteGroup from a config entry."""
+    from .coordinator import ErsteGroupCoordinator
 
-    conf = config[DOMAIN]
+    coordinator = ErsteGroupCoordinator(hass, entry)
 
-    coordinator = ErsteGroupCoordinator(
-        hass,
-        api_key=conf[CONF_API_KEY],
-        api_base_url=conf[CONF_API_BASE_URL],
-        idp_base_url=conf[CONF_IDP_BASE_URL],
-        client_id=conf[CONF_CLIENT_ID],
-        client_secret=conf[CONF_CLIENT_SECRET],
-        refresh_token=conf[CONF_REFRESH_TOKEN],
-        payday=conf[CONF_PAYDAY],
-    )
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except ConfigEntryAuthFailed:
+        entry.async_start_reauth(hass)
+        return False
 
-    # Use async_refresh for YAML-only integrations
-    await coordinator.async_refresh()
+    # Use runtime_data instead of hass.data
+    entry.runtime_data = coordinator
 
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN]["coordinator"] = coordinator
-    hass.data[DOMAIN]["config"] = conf
-
-    # Load sensor platform
-    await async_load_platform(hass, "sensor", DOMAIN, {}, config)
-    await async_load_platform(hass, "button", DOMAIN, {}, config)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ErsteGroupConfigEntry) -> bool:
+    """Unload a config entry."""
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

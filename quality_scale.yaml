@@ -1,0 +1,72 @@
+rules:
+  # Bronze tier (required)
+  appropriate-polling: done
+
+  common-modules: done
+
+  config-flow-test-coverage:
+    status: exempt
+    comment: Tests planned for future version
+
+  dependency-transparency:
+    status: exempt
+    comment: Integration has no dependencies
+
+  docs-actions:
+    status: exempt
+    comment: Integration does not register actions
+
+  docs-high-level-description: done
+
+  docs-installation-instructions: done
+
+  docs-removal-instructions:
+    status: exempt
+    comment: Standard removal through UI
+
+  has-entity-name: done
+
+  runtime-data: done
+
+  unique-config-entry: done
+
+  # Additional Bronze rules
+  action-setup:
+    status: exempt
+    comment: Integration does not register custom actions
+
+  brands:
+    status: exempt
+    comment: No brand logos needed
+
+  config-flow: done
+
+  discovery:
+    status: exempt
+    comment: Requires manual API credentials
+
+  entity-event-setup:
+    status: exempt
+    comment: Does not use entity events
+
+  entity-translations:
+    status: exempt
+    comment: Entity names from account data
+
+  entity-unique-id: done
+
+  exception-translations:
+    status: exempt
+    comment: Using default exceptions
+
+  icon-translations:
+    status: exempt
+    comment: Using static icons
+
+  test-before-configure:
+    status: exempt
+    comment: Cannot test without OAuth
+
+  test-before-setup:
+    status: exempt
+    comment: Token validation during setup
