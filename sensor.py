@@ -51,7 +51,7 @@ class ErsteGroupBalanceSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._account_id = account_id
         account_data = coordinator.data["accounts"][account_id]
-        self._attr_name = f"{account_data['name']} Balance"
+        self._attr_name = f"{account_data['friendly_name']} Balance"
         self._attr_unique_id = f"{account_id}_balance"
         self._attr_native_unit_of_measurement = account_data["currency"]
 
@@ -82,7 +82,7 @@ class ErsteGroupSpendingSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._account_id = account_id
         account_data = coordinator.data["accounts"][account_id]
-        self._attr_name = f"{account_data['name']} Monthly Spending"
+        self._attr_name = f"{account_data['friendly_name']} Monthly Spending"
         self._attr_unique_id = f"{account_id}_spending"
         self._attr_native_unit_of_measurement = account_data["currency"]
 
@@ -104,7 +104,7 @@ class ErsteGroupSpendingRatioSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._account_id = account_id
         account_data = coordinator.data["accounts"][account_id]
-        self._attr_name = f"{account_data['name']} Spending Ratio"
+        self._attr_name = f"{account_data['friendly_name']} Spending Ratio"
         self._attr_unique_id = f"{account_id}_spending_ratio"
 
     @property
@@ -134,7 +134,7 @@ class ErsteGroupFinancialHealthSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._account_id = account_id
         account_data = coordinator.data["accounts"][account_id]
-        self._attr_name = f"{account_data['name']} Financial Health"
+        self._attr_name = f"{account_data['friendly_name']} Financial Health"
         self._attr_unique_id = f"{account_id}_financial_health"
 
     @property

@@ -156,10 +156,10 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                 runway_days = balance["amount"] / daily_burn if daily_burn > 0 else 999
 
                 # Calculate financial health score
-                if days_until_payday > 0:
-                    safety_margin = runway_days / days_until_payday
-                else:
-                    safety_margin = 2.0  # Payday is today!
+                if days_until_payday <= 1:
+                    days_until_payday = 2
+
+                safety_margin = runway_days / days_until_payday
 
                 # Determine status
                 if safety_margin >= 2.0:
@@ -186,6 +186,8 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                 data["accounts"][account_id] = {
                     "id": account_id,
                     "name": account.get("nameI18N", "Unknown Account"),
+                    "friendly_name": account.get("nameI18N", "Unknown Account") + " " + account.get("productI18N",
+                                                                                                      "Unknown product"),
                     "number": account_number,
                     "currency": account.get("currency", "CZK"),
                     "balance": balance,
@@ -200,7 +202,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                     "financial_health_status": status,
                     "financial_health_emoji": emoji,
                     "financial_health_message": message,
-                    "product": account.get("productI18N", ""),
+                    "product": account.get("productI18N", "Unknown product"),
                 }
 
             return data
