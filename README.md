@@ -36,7 +36,7 @@ If everything works correctly, apply for production access. For me this took abo
 ### Manual
 
 1. Make a `custom_components` directory in your HA config directory
-2. Run `git clone https://github.com/3top1a/homeassistant-erstegroup.git`
+2. Run `git clone https://github.com/3top1a/homeassistant-erstegroup.git erstegroup`
 3. Restart Home Assistant
 
 ## Sensors

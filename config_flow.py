@@ -23,10 +23,10 @@ from .const import (
     DEFAULT_PAYDAY,
     OAUTH_SCOPES
 )
-from ...helpers.selector import TextSelector
 
 _LOGGER = logging.getLogger(__name__)
 
+from homeassistant.helpers.selector import TextSelector
 
 @config_entries.HANDLERS.register(DOMAIN)
 class ErsteGroupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
