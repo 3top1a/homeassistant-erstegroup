@@ -58,6 +58,11 @@ python -m script.translations develop --integration erstegroup # Generate transl
 
 ```
 
+## TODO
+
+[ ] Clean up code
+[ ] Fire [events](https://developers.home-assistant.io/docs/core/entity/event) for every new transaction
+
 ## License
 
 MIT
