@@ -86,44 +86,39 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Entry point from hass"""
-        try:
-            self.access_token = await self._get_access_token()
+        self.access_token = await self._get_access_token()
 
-            self.accounts = await self._fetch_accounts()
+        self.accounts = await self._fetch_accounts()
 
-            data = {"accounts": {}}
-            for account in self.accounts:
-                # Fetch balance
-                balance = await self._fetch_balance(account.id)
+        data = {"accounts": {}}
+        for account in self.accounts:
+            # Fetch balance
+            balance = await self._fetch_balance(account.id)
 
-                # TODO This could just be one fetch transactions and then would just get filtered
-                # Fetch transactions for current month to date (1st to current day)
-                transactions_month = await self._fetch_transactions(account.id, days=None)
-                spending_month, income_month = self._calculate_spending_income(transactions_month)
+            # TODO This could just be one fetch transactions and then would just get filtered
+            # Fetch transactions for current month to date (1st to current day)
+            transactions_month = await self._fetch_transactions(account.id, days=None)
+            spending_month, income_month = self._calculate_spending_income(transactions_month)
 
-                # Fetch transactions for last 30 days
-                transactions_30d = await self._fetch_transactions(account.id, days=30)
-                spending_30d, income_30d = self._calculate_spending_income(transactions_30d)
+            # Fetch transactions for last 30 days
+            transactions_30d = await self._fetch_transactions(account.id, days=30)
+            spending_30d, income_30d = self._calculate_spending_income(transactions_30d)
 
-                data["accounts"][account.id] = {
-                    "id": account.id,
-                    "number": account.get_iban(),
-                    "name": account.get_name(),
-                    "friendly_name": account.get_name() + " " + account.get_product(),
-                    "product": account.get_product(),
-                    "currency": balance.currency,
-                    "balance": balance.amount,
-                    "spending_mtd": spending_month,
-                    "income_mtd": income_month,
-                    "spending_30d": spending_30d,
-                    "income_30d": income_30d,
-                }
+            data["accounts"][account.id] = {
+                "id": account.id,
+                "number": account.get_iban(),
+                "name": account.get_name(),
+                "friendly_name": account.get_name() + " " + account.get_product(),
+                "product": account.get_product(),
+                "currency": balance.currency,
+                "balance": balance.amount,
+                "spending_mtd": spending_month,
+                "income_mtd": income_month,
+                "spending_30d": spending_30d,
+                "income_30d": income_30d,
+            }
 
-            return data
-
-        except Exception as err:
-            _LOGGER.error("Error communicating with API: %s", err)
-            raise UpdateFailed(f"Error communicating with API: {err}") from err
+        return data
 
     async def _fetch_accounts(self) -> list[Account]:
         """Fetch accounts list"""
