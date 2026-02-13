@@ -21,7 +21,6 @@ from .const import (
     CONF_REFRESH_TOKEN,
     CONF_API_BASE_URL,
     CONF_IDP_BASE_URL,
-    CONF_PAYDAY,
 )
 from .dataclass import Account, Balance
 
@@ -38,7 +37,6 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
         self.client_id = entry.data[CONF_CLIENT_ID]
         self.client_secret = entry.data[CONF_CLIENT_SECRET]
         self.refresh_token = entry.data[CONF_REFRESH_TOKEN]
-        self.payday = entry.data[CONF_PAYDAY]
         self.access_token = None
         self.session = async_get_clientsession(hass)
         self.accounts: list[Account] | None = None
@@ -50,36 +48,6 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=UPDATE_INTERVAL),
             config_entry=entry,
         )
-
-    def _calculate_days_until_payday(self) -> int:
-        """Calculate days until next payday."""
-        today = datetime.now()
-        current_day = today.day
-
-        if current_day < self.payday:
-            # Payday is this month
-            payday_date = today.replace(day=self.payday)
-        else:
-            # Payday is next month
-            if today.month == 12:
-                payday_date = today.replace(year=today.year + 1, month=1, day=self.payday)
-            else:
-                # Handle months with fewer days (e.g., payday=31 but next month is Feb)
-                next_month = today.month + 1
-                year = today.year
-
-                # Try to set the payday, if it fails (e.g., Feb 31), use last day of month
-                try:
-                    payday_date = today.replace(month=next_month, day=self.payday)
-                except ValueError:
-                    # Payday doesn't exist in next month, use last day
-                    if next_month == 12:
-                        payday_date = today.replace(month=12, day=31)
-                    else:
-                        payday_date = today.replace(month=next_month + 1, day=1) - timedelta(days=1)
-
-        days_until = (payday_date - today).days
-        return days_until
 
     async def _get_access_token(self) -> str:
         """Get valid access token, refreshing if needed."""
@@ -125,11 +93,10 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
             data = {"accounts": {}}
             for account in self.accounts:
-                account_number = account.get_iban()
-
                 # Fetch balance
                 balance = await self._fetch_balance(account.id)
 
+                # TODO This could just be one fetch transactions and then would just get filtered
                 # Fetch transactions for current month to date (1st to current day)
                 transactions_month = await self._fetch_transactions(account.id, days=None)
                 spending_month, income_month = self._calculate_spending_income(transactions_month)
@@ -140,16 +107,16 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
                 data["accounts"][account.id] = {
                     "id": account.id,
+                    "number": account.get_iban(),
                     "name": account.get_name(),
                     "friendly_name": account.get_name() + " " + account.get_product(),
-                    "number": account_number,
+                    "product": account.get_product(),
                     "currency": balance.currency,
                     "balance": balance.amount,
                     "spending_mtd": spending_month,
                     "income_mtd": income_month,
                     "spending_30d": spending_30d,
                     "income_30d": income_30d,
-                    "product": account.get_product()
                 }
 
             return data
@@ -186,13 +153,6 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
             return Balance(amount, currency)
 
-    def _construct_auth_headers(self) -> dict[str, str | Any]:
-        headers = {
-            "WEB-API-key": self.api_key,
-            "Authorization": f"Bearer {self.access_token}",
-        }
-        return headers
-
     async def _fetch_transactions(
             self, account_id: str, days: int | None = None
     ) -> list:
@@ -214,6 +174,13 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             response.raise_for_status()
             data = await response.json()
             return data.get("transactions", [])
+
+    def _construct_auth_headers(self) -> dict[str, str | Any]:
+        headers = {
+            "WEB-API-key": self.api_key,
+            "Authorization": f"Bearer {self.access_token}",
+        }
+        return headers
 
     def _calculate_spending_income(
             self, transactions: list
