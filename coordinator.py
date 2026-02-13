@@ -51,8 +51,8 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
     async def _get_access_token(self) -> str:
         """Get valid access token, refreshing if needed."""
-        if self.access_token:
-            return self.access_token
+        # TODO More intelligent token handling
+        # Maybe natively through home assistant?
 
         url = f"{self.idp_base_url}/token"
         data = {
