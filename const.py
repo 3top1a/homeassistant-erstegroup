@@ -24,5 +24,4 @@ API_BALANCES = "/my/accounts/{account_id}/balance"
 API_TRANSACTIONS = "/my/accounts/{account_id}/transactions"
 
 # Update interval
-UPDATE_INTERVAL = 600  # 10 minutes
-# TODO Configurable update interval
+UPDATE_INTERVAL = 300  # 5 minutes
