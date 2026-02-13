@@ -24,6 +24,8 @@ from .const import (
     CONF_PAYDAY,
 )
 
+from dataclass import Account
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -125,23 +127,22 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             data = {"accounts": {}}
 
             for account in accounts:
-                account_id = account["id"]
-                account_number = account.get("identification", {}).get("iban", "")
+                account_number = account.get_iban()
 
-                self.account_numbers[account_number] = account_id
+                self.account_numbers[account_number] = account.id
 
                 # Fetch balance
-                balance = await self._fetch_balance(account_id, access_token)
+                balance = await self._fetch_balance(account.id, access_token)
 
                 # Fetch transactions for current month (for monthly spending)
                 transactions_month = await self._fetch_transactions(
-                    account_id, access_token, days=None
+                    account.id, access_token, days=None
                 )
                 spending_month = self._calculate_spending(transactions_month, account_number)
 
                 # Fetch transactions for last 30 days (for ratio calculation)
                 transactions_30d = await self._fetch_transactions(
-                    account_id, access_token, days=30
+                    account.id, access_token, days=30
                 )
                 spending_30d, income_30d = self._calculate_spending_income(
                     transactions_30d, account_number
@@ -183,13 +184,12 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                     emoji = "🚨"
                     message = "Oh fuck oh shit"
 
-                data["accounts"][account_id] = {
-                    "id": account_id,
-                    "name": account.get("nameI18N", "Unknown Account"),
-                    "friendly_name": account.get("nameI18N", "Unknown Account") + " " + account.get("productI18N",
-                                                                                                      "Unknown product"),
+                data["accounts"][account.id] = {
+                    "id": account.id,
+                    "name": account.get_name(),
+                    "friendly_name": account.get_name() + " " + account.get_product(),
                     "number": account_number,
-                    "currency": account.get("currency", "CZK"),
+                    "currency": account.currency,
                     "balance": balance,
                     "spending": spending_month,
                     "spending_30d": spending_30d,
@@ -202,7 +202,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                     "financial_health_status": status,
                     "financial_health_emoji": emoji,
                     "financial_health_message": message,
-                    "product": account.get("productI18N", "Unknown product"),
+                    "product": account.get_product()
                 }
 
             return data
@@ -211,7 +211,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Error communicating with API: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-    async def _fetch_accounts(self, access_token: str) -> list:
+    async def _fetch_accounts(self, access_token: str) -> list[Account]:
         """Fetch accounts list."""
         url = f"{self.api_base_url}{API_ACCOUNTS}"
         headers = {
@@ -222,7 +222,8 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
         async with self.session.get(url, headers=headers) as response:
             response.raise_for_status()
             data = await response.json()
-            return data.get("accounts", [])
+            accounts = data.get("accounts", [])
+            return [Account(**account) for account in accounts] # Cast to `Account` type
 
     async def _fetch_balance(self, account_id: str, access_token: str) -> dict:
         """Fetch account balance."""
