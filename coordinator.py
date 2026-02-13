@@ -23,7 +23,6 @@ from .const import (
     CONF_IDP_BASE_URL,
     CONF_PAYDAY,
 )
-
 from .dataclass import Account, Balance
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,7 +41,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
         self.payday = entry.data[CONF_PAYDAY]
         self.access_token = None
         self.session = async_get_clientsession(hass)
-        self.account_numbers = {}
+        self.accounts: list[Account] | None = None
 
         super().__init__(
             hass,
@@ -122,42 +121,22 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
         try:
             self.access_token = await self._get_access_token()
 
-            accounts = await self._fetch_accounts()
+            self.accounts = await self._fetch_accounts()
+
             data = {"accounts": {}}
-
-            for account in accounts:
+            for account in self.accounts:
                 account_number = account.get_iban()
-
-                self.account_numbers[account_number] = account.id
 
                 # Fetch balance
                 balance = await self._fetch_balance(account.id)
 
-                # Fetch transactions for current month (for monthly spending)
-                transactions_month = await self._fetch_transactions(
-                    account.id, days=None
-                )
-                spending_month = self._calculate_spending(transactions_month, account_number)
+                # Fetch transactions for current month to date (1st to current day)
+                transactions_month = await self._fetch_transactions(account.id, days=None)
+                spending_month, income_month = self._calculate_spending_income(transactions_month)
 
-                # Fetch transactions for last 30 days (for ratio calculation)
-                transactions_30d = await self._fetch_transactions(
-                    account.id, days=30
-                )
-                spending_30d, income_30d = self._calculate_spending_income(
-                    transactions_30d, account_number
-                )
-
-                # Calculate metrics
-                ratio = (spending_30d / income_30d * 100) if income_30d > 0 else 0
-                daily_burn = spending_30d / 30
-                days_until_payday = self._calculate_days_until_payday()
-
-                # Calculate runway (days until money runs out at current burn rate)
-                runway_days = balance.amount / daily_burn if daily_burn > 0 else 999
-
-                # Calculate financial health score
-                if days_until_payday <= 1:
-                    days_until_payday = 2
+                # Fetch transactions for last 30 days
+                transactions_30d = await self._fetch_transactions(account.id, days=30)
+                spending_30d, income_30d = self._calculate_spending_income(transactions_30d)
 
                 data["accounts"][account.id] = {
                     "id": account.id,
@@ -166,13 +145,10 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                     "number": account_number,
                     "currency": account.currency,
                     "balance": balance.amount,
-                    "spending": spending_month,
+                    "spending_mtd": spending_month,
+                    "income_mtd": income_month,
                     "spending_30d": spending_30d,
                     "income_30d": income_30d,
-                    "spending_ratio": ratio,
-                    "daily_burn": daily_burn,
-                    "runway_days": runway_days,
-                    "days_until_payday": days_until_payday,
                     "product": account.get_product()
                 }
 
@@ -191,7 +167,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             response.raise_for_status()
             data = await response.json()
             accounts = data.get("accounts", [])
-            return [Account(**account) for account in accounts] # Cast to `Account` type
+            return [Account(**account) for account in accounts]  # Cast to `Account` type
 
     async def _fetch_balance(self, account_id: str) -> Balance:
         """Fetch current balance of an account"""
@@ -204,13 +180,11 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
             assert len(data["balances"]) > 0, f"Expected more than zero balances on account {account_id}"
 
-            balance = data["balances"][0]
-
-            amount = float(balance["amount"]["value"])
-            currency = balance["amount"]["currency"]
+            balance_data = data["balances"][0]
+            amount = float(balance_data["amount"]["value"])
+            currency = balance_data["amount"]["currency"]
 
             return Balance(amount, currency)
-
 
     def _construct_auth_headers(self) -> dict[str, str | Any]:
         headers = {
@@ -222,12 +196,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
     async def _fetch_transactions(
             self, account_id: str, days: int | None = None
     ) -> list:
-        """Fetch account transactions.
-
-        Args:
-            account_id: The account ID
-            days: Number of days to fetch (None = current month)
-        """
+        """Fetch transactions for an account"""
         today = datetime.now()
 
         if days is None:
@@ -246,40 +215,14 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             data = await response.json()
             return data.get("transactions", [])
 
-    def _calculate_spending(self, transactions: list, account_number: str) -> float:
-        """Calculate spending excluding internal transfers."""
-        spending = 0.0
-
-        for transaction in transactions:
-            if transaction.get("creditDebitIndicator") != "DBIT":
-                continue
-
-            entry_details = transaction.get("entryDetails", {})
-            transaction_details = entry_details.get("transactionDetails", {})
-            related_parties = transaction_details.get("relatedParties", {})
-
-            creditor = related_parties.get("creditor", {})
-            creditor_account = creditor.get("account", {})
-            creditor_iban = creditor_account.get("identification", {}).get("iban", "")
-
-            if creditor_iban in self.account_numbers:
-                continue
-
-            amount = float(transaction.get("amount", {}).get("value", 0))
-            spending += amount
-
-        return spending
-
     def _calculate_spending_income(
-            self, transactions: list, account_number: str
+            self, transactions: list
     ) -> tuple[float, float]:
-        """Calculate spending and income excluding internal transfers.
-
-        Returns:
-            Tuple of (spending, income)
-        """
+        """Calculate spending and income excluding internal transfers."""
         spending = 0.0
         income = 0.0
+        # Requires self.accounts to be set before calling
+        own_ibans = [account.get_iban() for account in self.accounts]
 
         for transaction in transactions:
             credit_debit = transaction.get("creditDebitIndicator")
@@ -293,7 +236,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                 creditor = related_parties.get("creditorAccount", {})
                 creditor_iban = creditor.get("identification", {}).get("iban", "")
 
-                if creditor_iban not in self.account_numbers:
+                if creditor_iban not in own_ibans:
                     spending += amount
 
             elif credit_debit == "CRDT":
@@ -301,7 +244,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                 debtor = related_parties.get("debtorAccount", {})
                 debtor_iban = debtor.get("identification", {}).get("iban", "")
 
-                if debtor_iban not in self.account_numbers:
+                if debtor_iban not in own_ibans:
                     income += amount
 
         return spending, income

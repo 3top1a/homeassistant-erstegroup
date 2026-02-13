@@ -62,6 +62,7 @@ python -m script.translations develop --integration erstegroup # Generate transl
 
 [ ] Clean up code
 [ ] Fire [events](https://developers.home-assistant.io/docs/core/entity/event) for every new transaction
+[ ] Publish whole history and don't rely on HA?
 
 ## License
 
