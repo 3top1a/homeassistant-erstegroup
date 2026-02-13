@@ -30,10 +30,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ErsteGroupCoordinator(DataUpdateCoordinator):
-    """Class to manage fetching ErsteGroup data."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Initialize."""
         self.entry = entry
         self.api_key = entry.data[CONF_API_KEY]
         self.api_base_url = entry.data[CONF_API_BASE_URL].rstrip("/")
@@ -97,6 +95,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             "client_secret": self.client_secret,
         }
 
+        # TODO This exception handling is a mess, refactor
         try:
             async with self.session.post(url, data=data) as response:
                 if response.status == 401:
@@ -114,16 +113,16 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
         except ConfigEntryAuthFailed:
             raise
         except Exception as err:
+            # TODO Does this maybe leak secrets?
             _LOGGER.error("Failed to refresh access token: %s, %s", response.json(), err)
             raise UpdateFailed(f"Authentication failed: {response.json()}, {err}") from err
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch data from API."""
+        """Entry point from hass"""
         try:
-            self.access_token = None
-            access_token = await self._get_access_token()
+            self.access_token = await self._get_access_token()
 
-            accounts = await self._fetch_accounts(access_token)
+            accounts = await self._fetch_accounts()
             data = {"accounts": {}}
 
             for account in accounts:
@@ -132,17 +131,17 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                 self.account_numbers[account_number] = account.id
 
                 # Fetch balance
-                balance = await self._fetch_balance(account.id, access_token)
+                balance = await self._fetch_balance(account.id)
 
                 # Fetch transactions for current month (for monthly spending)
                 transactions_month = await self._fetch_transactions(
-                    account.id, access_token, days=None
+                    account.id, days=None
                 )
                 spending_month = self._calculate_spending(transactions_month, account_number)
 
                 # Fetch transactions for last 30 days (for ratio calculation)
                 transactions_30d = await self._fetch_transactions(
-                    account.id, access_token, days=30
+                    account.id, days=30
                 )
                 spending_30d, income_30d = self._calculate_spending_income(
                     transactions_30d, account_number
@@ -160,30 +159,6 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                 if days_until_payday <= 1:
                     days_until_payday = 2
 
-                safety_margin = runway_days / days_until_payday
-
-                # Determine status
-                if safety_margin >= 2.0:
-                    status = "excellent"
-                    emoji = "💰"
-                    message = "Go treat yourself!"
-                elif safety_margin >= 1.5:
-                    status = "good"
-                    emoji = "✅"
-                    message = "You're doing fine"
-                elif safety_margin >= 1.0:
-                    status = "ok"
-                    emoji = "⚠️"
-                    message = "Be careful with spending"
-                elif safety_margin >= 0.7:
-                    status = "warning"
-                    emoji = "🔶"
-                    message = "Time to cut back"
-                else:
-                    status = "danger"
-                    emoji = "🚨"
-                    message = "Oh fuck oh shit"
-
                 data["accounts"][account.id] = {
                     "id": account.id,
                     "name": account.get_name(),
@@ -198,10 +173,6 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                     "daily_burn": daily_burn,
                     "runway_days": runway_days,
                     "days_until_payday": days_until_payday,
-                    "safety_margin": safety_margin,
-                    "financial_health_status": status,
-                    "financial_health_emoji": emoji,
-                    "financial_health_message": message,
                     "product": account.get_product()
                 }
 
@@ -211,13 +182,10 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Error communicating with API: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-    async def _fetch_accounts(self, access_token: str) -> list[Account]:
-        """Fetch accounts list."""
+    async def _fetch_accounts(self) -> list[Account]:
+        """Fetch accounts list"""
         url = f"{self.api_base_url}{API_ACCOUNTS}"
-        headers = {
-            "WEB-API-key": self.api_key,
-            "Authorization": f"Bearer {access_token}",
-        }
+        headers = self._construct_auth_headers()
 
         async with self.session.get(url, headers=headers) as response:
             response.raise_for_status()
@@ -225,13 +193,10 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             accounts = data.get("accounts", [])
             return [Account(**account) for account in accounts] # Cast to `Account` type
 
-    async def _fetch_balance(self, account_id: str, access_token: str) -> dict:
-        """Fetch account balance."""
+    async def _fetch_balance(self, account_id: str) -> Balance:
+        """Fetch current balance of an account"""
         url = f"{self.api_base_url}{API_BALANCES.format(account_id=account_id)}"
-        headers = {
-            "WEB-API-key": self.api_key,
-            "Authorization": f"Bearer {access_token}",
-        }
+        headers = self._construct_auth_headers()
 
         async with self.session.get(url, headers=headers) as response:
             response.raise_for_status()
@@ -246,17 +211,21 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                     "currency": balance["amount"]["currency"],
                 }
 
-            _LOGGER.error("Error fetching account balance: %s", data)
-            return {"amount": -123.0, "currency": "EBALANCE"}
+
+    def _construct_auth_headers(self) -> dict[str, str | Any]:
+        headers = {
+            "WEB-API-key": self.api_key,
+            "Authorization": f"Bearer {self.access_token}",
+        }
+        return headers
 
     async def _fetch_transactions(
-            self, account_id: str, access_token: str, days: int | None = None
+            self, account_id: str, days: int | None = None
     ) -> list:
         """Fetch account transactions.
 
         Args:
             account_id: The account ID
-            access_token: OAuth access token
             days: Number of days to fetch (None = current month)
         """
         today = datetime.now()
@@ -270,10 +239,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
         url = f"{self.api_base_url}{API_TRANSACTIONS.format(account_id=account_id)}"
         params = {"fromDate": from_date, "size": 100}
-        headers = {
-            "WEB-API-key": self.api_key,
-            "Authorization": f"Bearer {access_token}",
-        }
+        headers = self._construct_auth_headers()
 
         async with self.session.get(url, headers=headers, params=params) as response:
             response.raise_for_status()
