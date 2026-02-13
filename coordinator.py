@@ -143,7 +143,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                     "name": account.get_name(),
                     "friendly_name": account.get_name() + " " + account.get_product(),
                     "number": account_number,
-                    "currency": account.currency,
+                    "currency": balance.currency,
                     "balance": balance.amount,
                     "spending_mtd": spending_month,
                     "income_mtd": income_month,
