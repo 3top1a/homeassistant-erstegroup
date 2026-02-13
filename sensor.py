@@ -60,8 +60,4 @@ class ErsteGroupBalanceSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         """Return attributes."""
-        account_data = self.coordinator.data["accounts"][self._account_id]
-        return {
-            "account_number": account_data["number"],
-            "product": account_data.get("product", ""),
-        }
+        return self.coordinator.data["accounts"][self._account_id]
