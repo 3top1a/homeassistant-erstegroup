@@ -24,7 +24,7 @@ from .const import (
     CONF_PAYDAY,
 )
 
-from dataclass import Account
+from .dataclass import Account, Balance
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                 days_until_payday = self._calculate_days_until_payday()
 
                 # Calculate runway (days until money runs out at current burn rate)
-                runway_days = balance["amount"] / daily_burn if daily_burn > 0 else 999
+                runway_days = balance.amount / daily_burn if daily_burn > 0 else 999
 
                 # Calculate financial health score
                 if days_until_payday <= 1:
@@ -165,7 +165,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                     "friendly_name": account.get_name() + " " + account.get_product(),
                     "number": account_number,
                     "currency": account.currency,
-                    "balance": balance,
+                    "balance": balance.amount,
                     "spending": spending_month,
                     "spending_30d": spending_30d,
                     "income_30d": income_30d,
@@ -202,14 +202,14 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             response.raise_for_status()
             data = await response.json()
 
-            for balance in data.get("balances", []):
-                # balance_type = balance.get("type", {})
-                # code = balance_type.get("codeOrProprietary", {}).get("code")
-                # There was a DBIT check here, but that's useless (I think)
-                return {
-                    "amount": float(balance["amount"]["value"]),
-                    "currency": balance["amount"]["currency"],
-                }
+            assert len(data["balances"]) > 0, f"Expected more than zero balances on account {account_id}"
+
+            balance = data["balances"][0]
+
+            amount = float(balance["amount"]["value"])
+            currency = balance["amount"]["currency"]
+
+            return Balance(amount, currency)
 
 
     def _construct_auth_headers(self) -> dict[str, str | Any]:

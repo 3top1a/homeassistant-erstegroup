@@ -55,7 +55,7 @@ class ErsteGroupBalanceSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self) -> float:
         """Return balance."""
-        return self.coordinator.data["accounts"][self._account_id]["balance"]["amount"]
+        return self.coordinator.data["accounts"][self._account_id]["balance"]
 
     @property
     def extra_state_attributes(self) -> dict:

@@ -26,3 +26,8 @@ class Account:
     def get_product(self) -> str:
         return self.productI18N
 
+@dataclass
+class Balance:
+    amount: float
+    currency: str
+
