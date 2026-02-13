@@ -39,15 +39,11 @@ If everything works correctly, apply for production access. For me this took abo
 2. Run `git clone https://github.com/3top1a/homeassistant-erstegroup.git erstegroup`
 3. Restart Home Assistant
 
-## Sensors
-
-- `sensor.{account}_balance` - Current account balance
-- `sensor.{account}_monthly_spending` - Current month spending (excluding internal transfers between accounts)
-- `sensor.{account}_spending_ratio` - Last 30 days spending/income ratio
-- `sensor.{account}_financial_health` - Safety margin, calculated as
-  `days until money runs out at current burn rate / days until payday`
-
 ## Development
+
+See [Set up development environment](https://developers.home-assistant.io/docs/development_environment/).
+
+For debugging, make a configuration that starts `.venv/bin/hass` with arguments `-c config --debug`.
 
 A few helpful commands
 
@@ -55,7 +51,6 @@ A few helpful commands
 python -m script.hassfest --action=validate --integration-path homeassistant/components/erstegroup # Validate integration
 python -m script.hassfest --action=generate # Register integration into HA
 python -m script.translations develop --integration erstegroup # Generate translation
-
 ```
 
 ## TODO
