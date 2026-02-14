@@ -24,7 +24,14 @@ from .const import (
     CONF_REFRESH_TOKEN,
     UPDATE_INTERVAL,
 )
-from .dataclass import Account, Balance
+from .dataclass import (
+    Account,
+    Balance,
+    DebitCreditEnum,
+    MonetaryAmount,
+    Transaction,
+    transaction_from_api,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,9 +40,9 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         # TODO Move runtime data to ConfigEntry.runtime_data
         self.entry = entry
-        self.api_key = entry.data[CONF_API_KEY]
-        self.api_base_url = entry.data[CONF_API_BASE_URL].rstrip("/")
-        self.idp_base_url = entry.data[CONF_IDP_BASE_URL].rstrip("/")
+        self.api_key: str = entry.data[CONF_API_KEY]
+        self.api_base_url: str = entry.data[CONF_API_BASE_URL].rstrip("/")
+        self.idp_base_url: str = entry.data[CONF_IDP_BASE_URL].rstrip("/")
         self.client_id = entry.data[CONF_CLIENT_ID]
         self.client_secret = entry.data[CONF_CLIENT_SECRET]
         self.refresh_token = entry.data[CONF_REFRESH_TOKEN]
@@ -96,6 +103,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
         self.accounts = await self._fetch_accounts()
 
+        # TODO Convert `data` this to a dataclass
         data = {"accounts": {}}
         for account in self.accounts:
             # Fetch balance
@@ -112,6 +120,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             transactions_30d = await self._fetch_transactions(account.id, days=30)
             spending_30d, income_30d = self._calculate_spending_income(transactions_30d)
 
+            # TODO This could be moved elsewhere
             data["accounts"][account.id] = {
                 "id": account.id,
                 "number": account.get_iban(),
@@ -130,6 +139,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
     async def _fetch_accounts(self) -> list[Account]:
         """Fetch accounts list"""
+        # See https://developers.erstegroup.com/docs/apis/bank.csas/bank.csas.v1%2Fpayments for API docs
         url = f"{self.api_base_url}{API_ACCOUNTS}"
         headers = self._construct_auth_headers()
 
@@ -158,12 +168,13 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             amount = float(balance_data["amount"]["value"])
             currency = balance_data["amount"]["currency"]
 
-            return Balance(amount, currency)
+            return MonetaryAmount(amount, currency)
 
     async def _fetch_transactions(
         self, account_id: str, days: int | None = None
-    ) -> list:
+    ) -> list[Transaction]:
         """Fetch transactions for an account"""
+        # See https://developers.erstegroup.com/docs/apis/bank.csas/bank.csas.v3%2Faccounts for API docs
         # TODO Make a transaction dataclass
         today = datetime.now()
 
@@ -179,45 +190,48 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
         headers = self._construct_auth_headers()
 
         async with self.session.get(url, headers=headers, params=params) as response:
+            # TODO This api is paged, implement paging when needed
             response.raise_for_status()
             data = await response.json()
-            return data.get("transactions", [])
 
-    def _construct_auth_headers(self) -> dict[str, str | Any]:
+            return [
+                transaction_from_api(transaction)
+                for transaction in data["transactions"]
+            ]
+
+    def _construct_auth_headers(self) -> dict[str, str]:
         headers = {
             "WEB-API-key": self.api_key,
             "Authorization": f"Bearer {self.access_token}",
         }
         return headers
 
-    def _calculate_spending_income(self, transactions: list) -> tuple[float, float]:
+    def _calculate_spending_income(
+        self, transactions: list[Transaction]
+    ) -> tuple[float, float]:
         """Calculate spending and income excluding internal transfers."""
+        # TODO Move to different file
         spending = 0.0
         income = 0.0
         # Requires self.accounts to be set before calling
-        own_ibans = [account.get_iban() for account in self.accounts]
+        own_ibans = [account.get_iban() for account in self.accounts] if self.accounts else []
 
         for transaction in transactions:
-            credit_debit = transaction.get("creditDebitIndicator")
-            entry_details = transaction.get("entryDetails", {})
-            transaction_details = entry_details.get("transactionDetails", {})
-            related_parties = transaction_details.get("relatedParties", {})
-            amount = float(transaction.get("amount", {}).get("value", 0))
+            credit_debit = transaction.creditDebitIndicator
+            amount = transaction.amount.amount
 
-            if credit_debit == "DBIT":
+            if credit_debit == DebitCreditEnum.Debit:
                 # Outgoing transaction - check if it's internal
-                creditor = related_parties.get("creditorAccount", {})
-                creditor_iban = creditor.get("identification", {}).get("iban", "")
+                if transaction.creditor.iban in own_ibans:
+                    continue
 
-                if creditor_iban not in own_ibans:
-                    spending += amount
+                spending += amount
 
-            elif credit_debit == "CRDT":
+            elif credit_debit == DebitCreditEnum.Credit:
                 # Incoming transaction - check if it's internal
-                debtor = related_parties.get("debtorAccount", {})
-                debtor_iban = debtor.get("identification", {}).get("iban", "")
+                if transaction.debitor.iban in own_ibans:
+                    continue
 
-                if debtor_iban not in own_ibans:
-                    income += amount
+                income += amount
 
         return spending, income
