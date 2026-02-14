@@ -56,8 +56,15 @@ python -m script.translations develop --integration erstegroup # Generate transl
 ## TODO
 
 [ ] Clean up code
+[ ] Use the auth system in HA
 [ ] Fire [events](https://developers.home-assistant.io/docs/core/entity/event) for every new transaction
 [ ] Publish whole history and don't rely on HA?
+    [ ] Look at [opower](https://github.com/home-assistant/core/tree/dev/homeassistant/components/opower)
+[ ] Make a [integration system health system](https://developers.home-assistant.io/docs/core/integration_system_health)
+[ ] Proper [exception handling](https://developers.home-assistant.io/docs/integration_fetching_data)
+[ ] Go through the bronze quality checklist
+    [ ] https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/runtime-data
+    [ ] [Only do data fetching in coordinator](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/common-modules)
 
 ## License
 

@@ -5,7 +5,7 @@ from typing import Any
 @dataclass
 class Account:
     id: str # Internal API identifier
-    currency: str # Three digit ISO identifier
+    currency: str # ISO 4217, only really denotes the currency of the country where the user has registered.
     nameI18N: str # Owner name
     productI18N: str # Account name
     identification: dict[str, str] # e.g., 'iban': 'CZ...'
@@ -29,5 +29,4 @@ class Account:
 @dataclass
 class Balance:
     amount: float
-    currency: str
-
+    currency: str # ISO 4217

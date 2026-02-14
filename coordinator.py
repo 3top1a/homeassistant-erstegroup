@@ -28,8 +28,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ErsteGroupCoordinator(DataUpdateCoordinator):
-
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        # TODO Move runtime data to ConfigEntry.runtime_data
         self.entry = entry
         self.api_key = entry.data[CONF_API_KEY]
         self.api_base_url = entry.data[CONF_API_BASE_URL].rstrip("/")
@@ -152,6 +152,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             self, account_id: str, days: int | None = None
     ) -> list:
         """Fetch transactions for an account"""
+        # TODO Make a transaction dataclass
         today = datetime.now()
 
         if days is None:

@@ -45,6 +45,12 @@ class ErsteGroupBalanceSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator, account_id: str) -> None:
         """Initialize."""
+
+        # TODO Rework
+        # - Make unique id actually unique for every separate bank account
+        # - Do processing of data here
+        # - Expose history too, not just latest number
+
         super().__init__(coordinator)
         self._account_id = account_id
         account_data = coordinator.data["accounts"][account_id]
