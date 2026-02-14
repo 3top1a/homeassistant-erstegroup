@@ -104,16 +104,20 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             # Fetch balance
             balance = await self._fetch_balance(account.id)
 
-            # TODO This could just be one fetch transactions and then would just get filtered
-            # Fetch transactions for current month to date (1st to current day)
-            transactions_month = await self._fetch_transactions(account.id, days=None)
-            spending_month, income_month = self._calculate_spending_income(
-                transactions_month
-            )
-
             # Fetch transactions for last 30 days
             transactions_30d = await self._fetch_transactions(account.id, days=30)
             spending_30d, income_30d = self._calculate_spending_income(transactions_30d)
+
+            # Derive MTD by filtering
+            first_of_month = (
+                datetime.now()
+                .replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                .date()
+            )
+            transactions_mtd = [
+                t for t in transactions_30d if t.valueDate >= first_of_month
+            ]
+            spending_mtd, income_mtd = self._calculate_spending_income(transactions_mtd)
 
             # TODO This could be moved elsewhere
             data["accounts"][account.id] = {
@@ -124,8 +128,8 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
                 "product": account.product,
                 "currency": balance.currency,
                 "balance": balance.amount,
-                "spending_mtd": spending_month,
-                "income_mtd": income_month,
+                "spending_mtd": spending_mtd,
+                "income_mtd": income_mtd,
                 "spending_30d": spending_30d,
                 "income_30d": income_30d,
             }
@@ -214,14 +218,14 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
             if credit_debit == DebitCreditEnum.Debit:
                 # Outgoing transaction - check if it's internal
-                if transaction.creditor.iban in own_ibans:
+                if transaction.creditor and transaction.creditor.iban in own_ibans:
                     continue
 
                 spending += amount
 
             elif credit_debit == DebitCreditEnum.Credit:
                 # Incoming transaction - check if it's internal
-                if transaction.debitor.iban in own_ibans:
+                if transaction.debitor and transaction.debitor.iban in own_ibans:
                     continue
 
                 income += amount

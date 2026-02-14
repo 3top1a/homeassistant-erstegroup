@@ -19,7 +19,7 @@ def account_from_api(data: dict[str, Any]) -> Account:
     return Account(
         id=data["id"],
         currency=data["currency"],
-        name=data["name118N"],
+        name=data["nameI18N"],
         product=data["productI18N"],
         iban=data["identification"]["iban"],
     )
@@ -44,8 +44,8 @@ class TransactionStatusEnum(Enum):
 
 @dataclass
 class PaymentActor:
-    name: str
     iban: str
+    name: str | None
 
 
 @dataclass
@@ -57,16 +57,31 @@ class Transaction:
     bookingDate: date
     valueDate: date
 
-    creditor: PaymentActor
-    debitor: PaymentActor
+    creditor: PaymentActor | None
+    debitor: PaymentActor | None
 
 
 def transaction_from_api(transaction: dict[str, Any]) -> Transaction:
     relatedParties = transaction["entryDetails"]["transactionDetails"]["relatedParties"]
-    creditor_name = relatedParties["creditor"]["name"]
-    debitor_name = relatedParties["debitor"]["name"]
-    creditor_iban = relatedParties["creditorAccount"]["identification"]["iban"]
-    debitor_iban = relatedParties["debitorAccount"]["identification"]["iban"]
+    creditor_name: str | None = relatedParties.get("creditor", {}).get("name", None)
+    debitor_name: str | None = relatedParties.get("debtor", {}).get("name", None)
+    creditor_iban: str | None = (
+        relatedParties.get("creditorAccount", {})
+        .get("identification", {})
+        .get("iban", None)
+    )
+    debitor_iban: str | None = (
+        relatedParties.get("debtorAccount", {})
+        .get("identification", {})
+        .get("iban", None)
+    )
+
+    debitor = None
+    creditor = None
+    if debitor_iban:
+        debitor = PaymentActor(name=debitor_name, iban=debitor_iban)
+    if creditor_iban:
+        creditor = PaymentActor(name=creditor_name, iban=creditor_iban)
 
     return Transaction(
         entryReference=transaction["entryReference"],
@@ -76,10 +91,10 @@ def transaction_from_api(transaction: dict[str, Any]) -> Transaction:
         ),
         creditDebitIndicator=DebitCreditEnum(transaction["creditDebitIndicator"]),
         status=TransactionStatusEnum(transaction["status"]),
-        bookingDate=_parse_date(transaction["bookingDate"]),
-        valueDate=_parse_date(transaction["valueDate"]),
-        creditor=PaymentActor(name=creditor_name, iban=creditor_iban),
-        debitor=PaymentActor(name=debitor_name, iban=debitor_iban),
+        bookingDate=_parse_date(transaction["bookingDate"]["date"]),
+        valueDate=_parse_date(transaction["valueDate"]["date"]),
+        creditor=creditor,
+        debitor=debitor,
     )
 
 
