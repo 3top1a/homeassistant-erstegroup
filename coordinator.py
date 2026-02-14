@@ -1,8 +1,9 @@
 """Data update coordinator for ErsteGroup."""
+
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 import logging
-from datetime import timedelta, datetime
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -10,17 +11,18 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+
 from .const import (
     API_ACCOUNTS,
     API_BALANCES,
     API_TRANSACTIONS,
-    UPDATE_INTERVAL,
+    CONF_API_BASE_URL,
     CONF_API_KEY,
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
-    CONF_REFRESH_TOKEN,
-    CONF_API_BASE_URL,
     CONF_IDP_BASE_URL,
+    CONF_REFRESH_TOKEN,
+    UPDATE_INTERVAL,
 )
 from .dataclass import Account, Balance
 
@@ -81,8 +83,12 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             raise
         except Exception as err:
             # TODO Does this maybe leak secrets?
-            _LOGGER.error("Failed to refresh access token: %s, %s", response.json(), err)
-            raise UpdateFailed(f"Authentication failed: {response.json()}, {err}") from err
+            _LOGGER.error(
+                "Failed to refresh access token: %s, %s", response.json(), err
+            )
+            raise UpdateFailed(
+                f"Authentication failed: {response.json()}, {err}"
+            ) from err
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Entry point from hass"""
@@ -98,7 +104,9 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             # TODO This could just be one fetch transactions and then would just get filtered
             # Fetch transactions for current month to date (1st to current day)
             transactions_month = await self._fetch_transactions(account.id, days=None)
-            spending_month, income_month = self._calculate_spending_income(transactions_month)
+            spending_month, income_month = self._calculate_spending_income(
+                transactions_month
+            )
 
             # Fetch transactions for last 30 days
             transactions_30d = await self._fetch_transactions(account.id, days=30)
@@ -129,7 +137,9 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             response.raise_for_status()
             data = await response.json()
             accounts = data.get("accounts", [])
-            return [Account(**account) for account in accounts]  # Cast to `Account` type
+            return [
+                Account(**account) for account in accounts
+            ]  # Cast to `Account` type
 
     async def _fetch_balance(self, account_id: str) -> Balance:
         """Fetch current balance of an account"""
@@ -140,7 +150,9 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             response.raise_for_status()
             data = await response.json()
 
-            assert len(data["balances"]) > 0, f"Expected more than zero balances on account {account_id}"
+            assert len(data["balances"]) > 0, (
+                f"Expected more than zero balances on account {account_id}"
+            )
 
             balance_data = data["balances"][0]
             amount = float(balance_data["amount"]["value"])
@@ -149,7 +161,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             return Balance(amount, currency)
 
     async def _fetch_transactions(
-            self, account_id: str, days: int | None = None
+        self, account_id: str, days: int | None = None
     ) -> list:
         """Fetch transactions for an account"""
         # TODO Make a transaction dataclass
@@ -178,9 +190,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
         }
         return headers
 
-    def _calculate_spending_income(
-            self, transactions: list
-    ) -> tuple[float, float]:
+    def _calculate_spending_income(self, transactions: list) -> tuple[float, float]:
         """Calculate spending and income excluding internal transfers."""
         spending = 0.0
         income = 0.0

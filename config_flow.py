@@ -1,4 +1,5 @@
 """Config flow for ErsteGroup integration."""
+
 from __future__ import annotations
 
 import logging
@@ -21,12 +22,13 @@ from .const import (
     DEFAULT_IDP_BASE_URL,
     CONF_PAYDAY,
     DEFAULT_PAYDAY,
-    OAUTH_SCOPES
+    OAUTH_SCOPES,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 from homeassistant.helpers.selector import TextSelector
+
 
 @config_entries.HANDLERS.register(DOMAIN)
 class ErsteGroupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -44,16 +46,16 @@ class ErsteGroupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._payday: int = DEFAULT_PAYDAY
 
     async def async_step_user(
-            self, user_input: dict[str, Any] | None = None
+        self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle step 1: Enter credentials."""
         errors = {}
 
         if user_input is not None:
             # Check for existing entries with same API base URL
-            self._async_abort_entries_match({
-                CONF_API_BASE_URL: user_input[CONF_API_BASE_URL]
-            })
+            self._async_abort_entries_match(
+                {CONF_API_BASE_URL: user_input[CONF_API_BASE_URL]}
+            )
 
             self._api_key = user_input[CONF_API_KEY]
             self._client_id = user_input[CONF_CLIENT_ID]
@@ -66,21 +68,23 @@ class ErsteGroupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({
-                vol.Required(CONF_API_KEY): str,
-                vol.Required(CONF_CLIENT_ID): str,
-                vol.Required(CONF_CLIENT_SECRET): str,
-                vol.Required(CONF_API_BASE_URL, default=DEFAULT_API_BASE_URL): str,
-                vol.Required(CONF_IDP_BASE_URL, default=DEFAULT_IDP_BASE_URL): str,
-                vol.Optional(CONF_PAYDAY, default=DEFAULT_PAYDAY): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=31)
-                ),
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_API_KEY): str,
+                    vol.Required(CONF_CLIENT_ID): str,
+                    vol.Required(CONF_CLIENT_SECRET): str,
+                    vol.Required(CONF_API_BASE_URL, default=DEFAULT_API_BASE_URL): str,
+                    vol.Required(CONF_IDP_BASE_URL, default=DEFAULT_IDP_BASE_URL): str,
+                    vol.Optional(CONF_PAYDAY, default=DEFAULT_PAYDAY): vol.All(
+                        vol.Coerce(int), vol.Range(min=1, max=31)
+                    ),
+                }
+            ),
             errors=errors,
         )
 
     async def async_step_auth(
-            self, user_input: dict[str, Any] | None = None
+        self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle step 2: Authenticate and get redirect URL."""
         errors = {}
@@ -120,13 +124,17 @@ class ErsteGroupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="auth",
-            data_schema=vol.Schema({
-                vol.Required("redirect_url"): TextSelector({"type": "text", "multiline": True}),
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("redirect_url"): TextSelector(
+                        {"type": "text", "multiline": True}
+                    ),
+                }
+            ),
             errors=errors,
             description_placeholders={
                 "oauth_url": auth_url,
-            }
+            },
         )
 
     async def _exchange_token(self, auth_code: str) -> FlowResult:
@@ -166,7 +174,7 @@ class ErsteGroupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_API_BASE_URL: self._api_base_url,
                         CONF_IDP_BASE_URL: self._idp_base_url,
                         CONF_PAYDAY: self._payday,
-                    }
+                    },
                 )
 
         except Exception as err:
@@ -178,7 +186,7 @@ class ErsteGroupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
-            self, user_input: dict[str, Any] | None = None
+        self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle reauth confirmation."""
         errors = {}
@@ -218,13 +226,15 @@ class ErsteGroupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema({
-                vol.Required("redirect_url"): str,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("redirect_url"): str,
+                }
+            ),
             errors=errors,
             description_placeholders={
                 "auth_url": auth_url,
-            }
+            },
         )
 
     async def _reauth_exchange(self, auth_code: str) -> FlowResult:
@@ -257,7 +267,7 @@ class ErsteGroupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data={
                         **entry.data,
                         CONF_REFRESH_TOKEN: new_refresh_token,
-                    }
+                    },
                 )
 
                 await self.hass.config_entries.async_reload(entry.entry_id)

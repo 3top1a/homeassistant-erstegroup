@@ -4,11 +4,11 @@ from typing import Any
 
 @dataclass
 class Account:
-    id: str # Internal API identifier
-    currency: str # ISO 4217, only really denotes the currency of the country where the user has registered.
-    nameI18N: str # Owner name
-    productI18N: str # Account name
-    identification: dict[str, str] # e.g., 'iban': 'CZ...'
+    id: str  # Internal API identifier
+    currency: str  # ISO 4217, only really denotes the currency of the country where the user has registered.
+    nameI18N: str  # Owner name
+    productI18N: str  # Account name
+    identification: dict[str, str]  # e.g., 'iban': 'CZ...'
 
     servicer: dict[str, str]
     ownersNames: list[str]
@@ -26,7 +26,8 @@ class Account:
     def get_product(self) -> str:
         return self.productI18N
 
+
 @dataclass
 class Balance:
     amount: float
-    currency: str # ISO 4217
+    currency: str  # ISO 4217

@@ -1,4 +1,5 @@
 """Constants for ErsteGroup integration."""
+
 DOMAIN = "erstegroup"
 
 # Configuration keys
@@ -11,8 +12,12 @@ CONF_IDP_BASE_URL = "idp_base_url"
 CONF_PAYDAY = "payday"
 
 # Default URLs
-DEFAULT_API_BASE_URL = "https://webapi.developers.erstegroup.com/api/csas/public/sandbox/v3/accounts"
-DEFAULT_IDP_BASE_URL = "https://webapi.developers.erstegroup.com/api/csas/sandbox/v1/sandbox-idp"
+DEFAULT_API_BASE_URL = (
+    "https://webapi.developers.erstegroup.com/api/csas/public/sandbox/v3/accounts"
+)
+DEFAULT_IDP_BASE_URL = (
+    "https://webapi.developers.erstegroup.com/api/csas/sandbox/v1/sandbox-idp"
+)
 DEFAULT_PAYDAY = 1
 
 # OAuth2 scopes
