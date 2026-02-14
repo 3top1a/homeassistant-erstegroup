@@ -8,29 +8,21 @@ type Balance = MonetaryAmount
 
 @dataclass
 class Account:
-    # TODO Make coordinator process data into more sensible format without random dict[]
-
     id: str  # Internal API identifier
     currency: str  # ISO 4217, only really denotes the currency of the country where the user has registered.
-    nameI18N: str  # Owner name
-    productI18N: str  # Account name
-    identification: dict[str, str]  # e.g., 'iban': 'CZ...'
+    name: str  # Owner name
+    product: str  # Account name
+    iban: str
 
-    servicer: dict[str, str]
-    ownersNames: list[str]
-    relationship: dict[str, Any]
-    suitableScope: dict[str, str]
 
-    def get_iban(self) -> str | None:
-        return self.identification.get("iban")
-
-    # I don't know *why*, but a previous version did None checks
-    # for name and product, so that's why this is here
-    def get_name(self) -> str:
-        return self.nameI18N
-
-    def get_product(self) -> str:
-        return self.productI18N
+def account_from_api(data: dict[str, Any]) -> Account:
+    return Account(
+        id=data["id"],
+        currency=data["currency"],
+        name=data["name118N"],
+        product=data["productI18N"],
+        iban=data["identification"]["iban"],
+    )
 
 
 @dataclass
@@ -69,7 +61,7 @@ class Transaction:
     debitor: PaymentActor
 
 
-def transaction_from_api(transaction: dict[str, Any]) -> "Transaction":
+def transaction_from_api(transaction: dict[str, Any]) -> Transaction:
     relatedParties = transaction["entryDetails"]["transactionDetails"]["relatedParties"]
     creditor_name = relatedParties["creditor"]["name"]
     debitor_name = relatedParties["debitor"]["name"]

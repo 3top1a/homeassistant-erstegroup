@@ -30,6 +30,7 @@ from .dataclass import (
     DebitCreditEnum,
     MonetaryAmount,
     Transaction,
+    account_from_api,
     transaction_from_api,
 )
 
@@ -123,10 +124,10 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             # TODO This could be moved elsewhere
             data["accounts"][account.id] = {
                 "id": account.id,
-                "number": account.get_iban(),
-                "name": account.get_name(),
-                "friendly_name": account.get_name() + " " + account.get_product(),
-                "product": account.get_product(),
+                "number": account.iban,
+                "name": account.name,
+                "friendly_name": account.name + " " + account.product,
+                "product": account.product,
                 "currency": balance.currency,
                 "balance": balance.amount,
                 "spending_mtd": spending_month,
@@ -147,9 +148,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             response.raise_for_status()
             data = await response.json()
             accounts = data.get("accounts", [])
-            return [
-                Account(**account) for account in accounts
-            ]  # Cast to `Account` type
+            return [account_from_api(account) for account in accounts]
 
     async def _fetch_balance(self, account_id: str) -> Balance:
         """Fetch current balance of an account"""
@@ -175,7 +174,6 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
     ) -> list[Transaction]:
         """Fetch transactions for an account"""
         # See https://developers.erstegroup.com/docs/apis/bank.csas/bank.csas.v3%2Faccounts for API docs
-        # TODO Make a transaction dataclass
         today = datetime.now()
 
         if days is None:
@@ -214,7 +212,9 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
         spending = 0.0
         income = 0.0
         # Requires self.accounts to be set before calling
-        own_ibans = [account.get_iban() for account in self.accounts] if self.accounts else []
+        own_ibans = (
+            [account.iban for account in self.accounts] if self.accounts else []
+        )
 
         for transaction in transactions:
             credit_debit = transaction.creditDebitIndicator
