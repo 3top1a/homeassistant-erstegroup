@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 import logging
 from typing import Any
 
+from aiohttp import ClientError
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -61,9 +63,6 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
 
     async def _get_access_token(self) -> str:
         """Get valid access token, refreshing if needed."""
-        # TODO More intelligent token handling
-        # Maybe natively through home assistant?
-
         url = f"{self.idp_base_url}/token"
         data = {
             "grant_type": "refresh_token",
@@ -72,31 +71,26 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
             "client_secret": self.client_secret,
         }
 
-        # TODO This exception handling is a mess, refactor
         try:
             async with self.session.post(url, data=data) as response:
-                if response.status == 401:
-                    raise ConfigEntryAuthFailed("Refresh token expired")
+                if response.status in (401, 403):
+                    raise ConfigEntryAuthFailed("Refresh token expired or invalid")
 
                 response.raise_for_status()
                 token_data = await response.json()
-                self.access_token = token_data["access_token"]
 
-                if "refresh_token" in token_data:
-                    self.refresh_token = token_data["refresh_token"]
-                    _LOGGER.info("New refresh token received")
-
-                return self.access_token
         except ConfigEntryAuthFailed:
             raise
-        except Exception as err:
-            # TODO Does this maybe leak secrets?
-            _LOGGER.error(
-                "Failed to refresh access token: %s, %s", response.json(), err
-            )
-            raise UpdateFailed(
-                f"Authentication failed: {response.json()}, {err}"
-            ) from err
+        except ClientError as err:
+            raise UpdateFailed(f"Failed to refresh access token: {err}") from err
+
+        self.access_token = token_data["access_token"]
+
+        if "refresh_token" in token_data:
+            self.refresh_token = token_data["refresh_token"]
+            _LOGGER.debug("New refresh token received")
+
+        return self.access_token
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Entry point from hass"""
@@ -212,9 +206,7 @@ class ErsteGroupCoordinator(DataUpdateCoordinator):
         spending = 0.0
         income = 0.0
         # Requires self.accounts to be set before calling
-        own_ibans = (
-            [account.iban for account in self.accounts] if self.accounts else []
-        )
+        own_ibans = [account.iban for account in self.accounts] if self.accounts else []
 
         for transaction in transactions:
             credit_debit = transaction.creditDebitIndicator
